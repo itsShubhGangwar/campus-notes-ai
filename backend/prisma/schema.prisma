@@ -1,0 +1,268 @@
+// CampusNotes AI - Prisma Database Schema
+// Phase 1 + Phase 2 + Phase 3A: Notes, Files, and Document Text Chunks
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  role         Role      @default(USER)
+  
+  // Academic Profile
+  collegeId    String?
+  college      College?  @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  semester     Int?      // 1 to 8
+  bio          String?
+  
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  notes        Note[]
+  downloads    Download[]
+  likes        Like[]
+  bookmarks    Bookmark[]
+  chatSessions ChatSession[]
+
+  @@index([collegeId, branchId, semester])
+  @@map("users")
+}
+
+model College {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  city      String?
+  state     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches  Branch[]
+  users     User[]
+  notes     Note[]
+
+  @@map("colleges")
+}
+
+model Branch {
+  id        String    @id @default(uuid())
+  name      String
+  code      String
+  collegeId String
+  college   College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  subjects  Subject[]
+  users     User[]
+  notes     Note[]
+
+  @@unique([collegeId, code])
+  @@map("branches")
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  name        String
+  code        String
+  semester    Int      // Semester 1 to 8
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notes        Note[]
+  chatSessions ChatSession[]
+
+  @@unique([branchId, code, semester])
+  @@map("subjects")
+}
+
+model Note {
+  id               String           @id @default(uuid())
+  title            String
+  description      String?
+  uploaderId       String
+  uploader         User             @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  collegeId        String
+  college          College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  branchId         String
+  branch           Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  semester         Int              // 1 to 8
+  subjectId        String
+  subject          Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  // File Metadata (Object / Local Storage)
+  fileUrl          String           // Direct stream/download URL
+  fileKey          String           // Storage object key (e.g. notes/<id>/filename.pdf)
+  fileName         String           // Original uploaded filename
+  fileSize         Int              // File size in bytes
+  fileType         String           @default("application/pdf")
+  pageCount        Int              @default(0)
+  
+  // Processing Pipeline Status
+  isPublished      Boolean          @default(true)
+  processingStatus ProcessingStatus @default(PENDING)
+  processingError  String?
+
+  // Engagement & Metrics
+  viewsCount       Int              @default(0)
+  downloadsCount   Int              @default(0)
+  likesCount       Int              @default(0)
+  bookmarksCount   Int              @default(0)
+  averageRating    Float            @default(0.0)
+  ratingsCount     Int              @default(0)
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relationships
+  chunks           NoteChunk[]
+  tags             NoteTag[]
+  downloads        Download[]
+  likes            Like[]
+  bookmarks        Bookmark[]
+  chatSessions     ChatSession[]
+
+  @@index([collegeId, branchId, semester, subjectId])
+  @@index([uploaderId])
+  @@index([processingStatus, isPublished])
+  @@map("notes")
+}
+
+model NoteChunk {
+  id         String                      @id @default(uuid())
+  noteId     String
+  note       Note                        @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  chunkIndex Int                         // Sequential order of the chunk (0, 1, 2, ...)
+  pageNumber Int?                        // Source page in the PDF (1-based)
+  content    String                      @db.Text
+  tokenCount Int?                        // Estimated word/token count for RAG context budgeting
+  embedding  Unsupported("vector(768)")? // 768-dimensional float vector for Gemini embedding
+  createdAt  DateTime                    @default(now())
+  updatedAt  DateTime                    @updatedAt
+
+  @@index([noteId, chunkIndex])
+  @@map("note_chunks")
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  notes     NoteTag[]
+  createdAt DateTime  @default(now())
+
+  @@map("tags")
+}
+
+model NoteTag {
+  noteId String
+  tagId  String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@map("note_tags")
+}
+
+model Download {
+  id        String   @id @default(uuid())
+  userId    String?
+  noteId    String
+  ipAddress String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([noteId, createdAt])
+  @@map("downloads")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  noteId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, noteId])
+  @@map("likes")
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  noteId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, noteId])
+  @@map("bookmarks")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String        @default("Study Chat")
+  noteId    String?       // Optional: Scoped to a specific note
+  note      Note?         @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  subjectId String?       // Optional: Scoped to a subject
+  subject   Subject?      @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  semester  Int?          // Optional: Scoped to a semester
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      MessageRole
+  content   String      @db.Text
+  sources   Json?       // Stores [{ noteId, noteTitle, pageNumber, similarity, contentExcerpt }]
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
