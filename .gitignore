@@ -5,3 +5,14 @@ build/
 *.log
 .DS_Store
 backend/uploads/
+
+# ML Recommendation Pipeline Data
+recommendation/data/raw/
+recommendation/data/processed/
+*.joblib
+
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

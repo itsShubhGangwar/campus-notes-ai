@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { config } from '../config/env.js';
 import { embeddingService } from './embedding.service.js';
+import { ollamaService } from './ollama.service.js';
 import { Role } from '@prisma/client';
 
 export interface RagUserContext {
@@ -61,6 +62,7 @@ export interface RagExecutionResult {
 }
 
 export class RagService {
+  private readonly llmProvider: 'gemini' | 'ollama';
   private readonly chatModel: string;
   private readonly defaultTopK: number;
   private readonly defaultSimilarityThreshold: number;
@@ -68,6 +70,7 @@ export class RagService {
   private readonly maxRetries = 4;
 
   constructor() {
+    this.llmProvider = config.ai.llmProvider;
     this.chatModel = config.ai.chatModel;
     this.defaultTopK = config.rag.topK;
     this.defaultSimilarityThreshold = config.rag.similarityThreshold;
@@ -202,17 +205,13 @@ export class RagService {
   }
 
   /**
-   * Synthesizes an answer strictly grounded in retrieved note context using Gemini.
+   * Synthesizes an answer strictly grounded in retrieved note context using the configured LLM provider.
    */
   public async generateGroundedAnswer(
     question: string,
     contextChunks: RetrievedChunk[],
     history: ConversationTurn[] = []
   ): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured in backend environment.');
-    }
-
     // Build context blocks with clear headers
     const contextBlocks = contextChunks.map((c, idx) => {
       const pageInfo = c.pageNumber ? `Page ${c.pageNumber}` : 'Page Unknown';
@@ -230,6 +229,26 @@ GROUNDING RULES:
 3. Never invent facts, definitions, or equations and claim they come from the notes.
 4. Format your answer cleanly using markdown with bold headings, bullet points, and concise explanations where appropriate.
 5. Cite the sources in your answer using bracket notation matching the sources provided in context, e.g.: [Source: <Note Title>, Page <X>].`;
+
+    if (this.llmProvider === 'ollama') {
+      return await ollamaService.generateGroundedAnswer(question, contextBlocks, systemInstruction, history);
+    }
+
+    return await this.generateGeminiGroundedAnswer(question, contextBlocks, systemInstruction, history);
+  }
+
+  /**
+   * Generates a grounded answer using Google Gemini models with multi-model fallback.
+   */
+  public async generateGeminiGroundedAnswer(
+    question: string,
+    contextBlocks: string,
+    systemInstruction: string,
+    history: ConversationTurn[] = []
+  ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured in backend environment.');
+    }
 
     const promptText = `=== VERIFIED STUDY NOTE EXCERPTS ===
 ${contextBlocks}
@@ -334,7 +353,7 @@ Answer the student's question strictly following the grounding rules:`;
    * Complete End-to-End RAG execution workflow.
    * 1. Vector similarity search via pgvector
    * 2. Short-circuits gracefully if no chunks pass similarity threshold
-   * 3. Calls LLM with strict grounding prompt
+   * 3. Calls LLM with strict grounding prompt (via configured provider: Gemini or Ollama)
    * 4. Assembles backend-verified citation sources
    */
   public async executeRagQuery(
@@ -344,6 +363,7 @@ Answer the student's question strictly following the grounding rules:`;
     history: ConversationTurn[] = []
   ): Promise<RagExecutionResult> {
     const chunks = await this.retrieveContext(question, options, user);
+    const activeModel = this.llmProvider === 'ollama' ? config.ollama.model : this.chatModel;
 
     // 1. Short-circuit safeguard: No chunks meet the similarity threshold
     if (chunks.length === 0) {
@@ -353,7 +373,7 @@ Answer the student's question strictly following the grounding rules:`;
         wasShortCircuited: true,
         retrievedCount: 0,
         topSimilarity: null,
-        modelUsed: this.chatModel,
+        modelUsed: activeModel,
       };
     }
 
@@ -377,7 +397,7 @@ Answer the student's question strictly following the grounding rules:`;
       wasShortCircuited: false,
       retrievedCount: chunks.length,
       topSimilarity: chunks[0]?.similarity ?? null,
-      modelUsed: this.chatModel,
+      modelUsed: activeModel,
     };
   }
 
@@ -386,8 +406,12 @@ Answer the student's question strictly following the grounding rules:`;
     return msg.replace(/key=[A-Za-z0-9_\-]+/gi, 'key=REDACTED');
   }
 
+  get activeProvider(): 'gemini' | 'ollama' {
+    return this.llmProvider;
+  }
+
   get configuredModel(): string {
-    return this.chatModel;
+    return this.llmProvider === 'ollama' ? config.ollama.model : this.chatModel;
   }
 
   get configuredThreshold(): number {

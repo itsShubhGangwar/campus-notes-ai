@@ -4,6 +4,7 @@ import userRoutes from './user.routes.js';
 import academicRoutes from './academic.routes.js';
 import noteRoutes from './note.routes.js';
 import chatRoutes from './chat.routes.js';
+import recommendationRoutes from './recommendation.routes.js';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/users', userRoutes);
 router.use('/academic', academicRoutes);
 router.use('/notes', noteRoutes);
 router.use('/chat', chatRoutes);
+router.use('/recommendations', recommendationRoutes);
 
 export default router;

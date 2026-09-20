@@ -1,0 +1,80 @@
+{
+  "dataset_type": "SYNTHETIC_OFFLINE_BOOTSTRAP",
+  "dataset_rows": 5908,
+  "train_rows": 4135,
+  "validation_rows": 886,
+  "test_rows": 887,
+  "positive_rows": 1190,
+  "negative_rows": 4718,
+  "feature_count": 27,
+  "feature_names": [
+    "is_same_college",
+    "is_same_branch",
+    "is_same_semester",
+    "semester_distance",
+    "is_enrolled_subject",
+    "user_semester",
+    "user_account_age_days",
+    "user_total_views",
+    "user_total_downloads",
+    "user_total_likes",
+    "user_total_bookmarks",
+    "user_total_chats",
+    "user_has_bio",
+    "note_page_count",
+    "note_file_size_kb",
+    "note_age_days",
+    "note_tag_count",
+    "note_is_processed",
+    "note_views_hist",
+    "note_downloads_hist",
+    "note_likes_hist",
+    "note_bookmarks_hist",
+    "note_download_view_ratio",
+    "user_subject_interaction_count",
+    "user_note_prior_views",
+    "user_uploader_affinity",
+    "semantic_affinity_score"
+  ],
+  "random_seed": 42,
+  "baseline": {
+    "model_type": "LogisticRegression",
+    "validation": {
+      "roc_auc": 1.0,
+      "log_loss": 0.010620342950999308,
+      "p@5": 0.4533333333333334,
+      "ndcg@5": 1.0,
+      "p@10": 0.24133333333333332,
+      "ndcg@10": 1.0
+    },
+    "test": {
+      "roc_auc": 1.0,
+      "log_loss": 0.02638788988009424,
+      "p@5": 0.437037037037037,
+      "ndcg@5": 1.0,
+      "p@10": 0.2209876543209877,
+      "ndcg@10": 1.0
+    }
+  },
+  "lightgbm": {
+    "model_type": "LGBMClassifier",
+    "best_iteration": 300,
+    "validation": {
+      "roc_auc": 1.0,
+      "log_loss": 5.7722469526561525e-05,
+      "p@5": 0.4533333333333334,
+      "ndcg@5": 1.0,
+      "p@10": 0.24133333333333332,
+      "ndcg@10": 1.0
+    },
+    "test": {
+      "roc_auc": 1.0,
+      "log_loss": 6.785257088086417e-05,
+      "p@5": 0.437037037037037,
+      "ndcg@5": 1.0,
+      "p@10": 0.2209876543209877,
+      "ndcg@10": 1.0
+    }
+  },
+  "synthetic_notice": "This model is an offline bootstrap model trained on synthetic interactions generated from the real CampusNotes academic catalog. Its metrics do not represent real student recommendation performance."
+}

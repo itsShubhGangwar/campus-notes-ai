@@ -223,11 +223,45 @@ export const getNoteById = async (
       return sendError(res, 'Note not found', 404);
     }
 
-    // Increment view count asynchronously
+    // 1. Authorization check for unpublished / private notes
+    if (!note.isPublished) {
+      const isOwner = req.user && note.uploaderId === req.user.id;
+      const isAdmin = req.user && req.user.role === Role.ADMIN;
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to view this unpublished note', 403);
+      }
+    }
+
+    // 2. Increment global view count
     await prisma.note.update({
       where: { id },
       data: { viewsCount: { increment: 1 } },
     });
+
+    // 3. Per-user view tracking for authenticated users on published notes
+    // Deduplicate rapid accidental duplicate writes within a 5-second burst window
+    if (req.user && note.isPublished) {
+      const RECENT_VIEW_DEBOUNCE_MS = 5000;
+      const recentThreshold = new Date(Date.now() - RECENT_VIEW_DEBOUNCE_MS);
+
+      const recentView = await prisma.noteView.findFirst({
+        where: {
+          userId: req.user.id,
+          noteId: id,
+          createdAt: { gte: recentThreshold },
+        },
+        select: { id: true },
+      });
+
+      if (!recentView) {
+        await prisma.noteView.create({
+          data: {
+            userId: req.user.id,
+            noteId: id,
+          },
+        });
+      }
+    }
 
     // Check if authenticated user has liked or bookmarked
     let isLiked = false;
@@ -585,3 +619,258 @@ export const getNoteChunks = async (
     return next(error);
   }
 };
+
+export const likeNote = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Authentication required to like notes', 401);
+    }
+
+    const { id } = req.params;
+    const note = await prisma.note.findUnique({
+      where: { id },
+      select: { id: true, isPublished: true, uploaderId: true, likesCount: true },
+    });
+
+    if (!note) {
+      return sendError(res, 'Note not found', 404);
+    }
+
+    if (!note.isPublished) {
+      const isOwner = note.uploaderId === req.user.id;
+      const isAdmin = req.user.role === Role.ADMIN;
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to access this note', 403);
+      }
+    }
+
+    const existingLike = await prisma.like.findUnique({
+      where: { userId_noteId: { userId: req.user.id, noteId: id } },
+    });
+
+    if (existingLike) {
+      return sendSuccess(
+        res,
+        { isLiked: true, likesCount: note.likesCount },
+        'Note already liked'
+      );
+    }
+
+    const [_, updatedNote] = await prisma.$transaction([
+      prisma.like.create({
+        data: {
+          userId: req.user.id,
+          noteId: id,
+        },
+      }),
+      prisma.note.update({
+        where: { id },
+        data: { likesCount: { increment: 1 } },
+        select: { likesCount: true },
+      }),
+    ]);
+
+    return sendSuccess(
+      res,
+      { isLiked: true, likesCount: updatedNote.likesCount },
+      'Note liked successfully',
+      201
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const unlikeNote = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Authentication required to unlike notes', 401);
+    }
+
+    const { id } = req.params;
+    const note = await prisma.note.findUnique({
+      where: { id },
+      select: { id: true, isPublished: true, uploaderId: true, likesCount: true },
+    });
+
+    if (!note) {
+      return sendError(res, 'Note not found', 404);
+    }
+
+    if (!note.isPublished) {
+      const isOwner = note.uploaderId === req.user.id;
+      const isAdmin = req.user.role === Role.ADMIN;
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to access this note', 403);
+      }
+    }
+
+    const existingLike = await prisma.like.findUnique({
+      where: { userId_noteId: { userId: req.user.id, noteId: id } },
+    });
+
+    if (!existingLike) {
+      return sendSuccess(
+        res,
+        { isLiked: false, likesCount: note.likesCount },
+        'Note was not liked'
+      );
+    }
+
+    const newLikesCount = Math.max(0, note.likesCount - 1);
+    const [_, updatedNote] = await prisma.$transaction([
+      prisma.like.delete({
+        where: { userId_noteId: { userId: req.user.id, noteId: id } },
+      }),
+      prisma.note.update({
+        where: { id },
+        data: { likesCount: newLikesCount },
+        select: { likesCount: true },
+      }),
+    ]);
+
+    return sendSuccess(
+      res,
+      { isLiked: false, likesCount: updatedNote.likesCount },
+      'Note unliked successfully'
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const bookmarkNote = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Authentication required to bookmark notes', 401);
+    }
+
+    const { id } = req.params;
+    const note = await prisma.note.findUnique({
+      where: { id },
+      select: { id: true, isPublished: true, uploaderId: true, bookmarksCount: true },
+    });
+
+    if (!note) {
+      return sendError(res, 'Note not found', 404);
+    }
+
+    if (!note.isPublished) {
+      const isOwner = note.uploaderId === req.user.id;
+      const isAdmin = req.user.role === Role.ADMIN;
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to access this note', 403);
+      }
+    }
+
+    const existingBookmark = await prisma.bookmark.findUnique({
+      where: { userId_noteId: { userId: req.user.id, noteId: id } },
+    });
+
+    if (existingBookmark) {
+      return sendSuccess(
+        res,
+        { isBookmarked: true, bookmarksCount: note.bookmarksCount },
+        'Note already bookmarked'
+      );
+    }
+
+    const [_, updatedNote] = await prisma.$transaction([
+      prisma.bookmark.create({
+        data: {
+          userId: req.user.id,
+          noteId: id,
+        },
+      }),
+      prisma.note.update({
+        where: { id },
+        data: { bookmarksCount: { increment: 1 } },
+        select: { bookmarksCount: true },
+      }),
+    ]);
+
+    return sendSuccess(
+      res,
+      { isBookmarked: true, bookmarksCount: updatedNote.bookmarksCount },
+      'Note bookmarked successfully',
+      201
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const removeBookmark = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'Authentication required to remove bookmark', 401);
+    }
+
+    const { id } = req.params;
+    const note = await prisma.note.findUnique({
+      where: { id },
+      select: { id: true, isPublished: true, uploaderId: true, bookmarksCount: true },
+    });
+
+    if (!note) {
+      return sendError(res, 'Note not found', 404);
+    }
+
+    if (!note.isPublished) {
+      const isOwner = note.uploaderId === req.user.id;
+      const isAdmin = req.user.role === Role.ADMIN;
+      if (!isOwner && !isAdmin) {
+        return sendError(res, 'You do not have permission to access this note', 403);
+      }
+    }
+
+    const existingBookmark = await prisma.bookmark.findUnique({
+      where: { userId_noteId: { userId: req.user.id, noteId: id } },
+    });
+
+    if (!existingBookmark) {
+      return sendSuccess(
+        res,
+        { isBookmarked: false, bookmarksCount: note.bookmarksCount },
+        'Note was not bookmarked'
+      );
+    }
+
+    const newBookmarksCount = Math.max(0, note.bookmarksCount - 1);
+    const [_, updatedNote] = await prisma.$transaction([
+      prisma.bookmark.delete({
+        where: { userId_noteId: { userId: req.user.id, noteId: id } },
+      }),
+      prisma.note.update({
+        where: { id },
+        data: { bookmarksCount: newBookmarksCount },
+        select: { bookmarksCount: true },
+      }),
+    ]);
+
+    return sendSuccess(
+      res,
+      { isBookmarked: false, bookmarksCount: updatedNote.bookmarksCount },
+      'Bookmark removed successfully'
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+

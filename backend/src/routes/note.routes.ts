@@ -10,6 +10,10 @@ import {
   processNoteHandler,
   getNoteProcessingStatus,
   getNoteChunks,
+  likeNote,
+  unlikeNote,
+  bookmarkNote,
+  removeBookmark,
 } from '../controllers/note.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { uploadPdf } from '../middlewares/upload.middleware.js';
@@ -61,5 +65,13 @@ router.get('/:id/status', optionalAuth, getNoteProcessingStatus);
 
 // 10. Phase 3A: Inspect extracted text chunks (Author or Admin only)
 router.get('/:id/chunks', authenticate, getNoteChunks);
+
+// 11. Phase 2 Step 2: Like & Unlike Note (Authenticated)
+router.post('/:id/like', authenticate, likeNote);
+router.delete('/:id/like', authenticate, unlikeNote);
+
+// 12. Phase 2 Step 2: Bookmark & Remove Bookmark (Authenticated)
+router.post('/:id/bookmark', authenticate, bookmarkNote);
+router.delete('/:id/bookmark', authenticate, removeBookmark);
 
 export default router;

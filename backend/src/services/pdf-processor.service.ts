@@ -258,7 +258,7 @@ export class PdfProcessorService {
             processingError: null,
           },
         });
-      });
+      }, { timeout: 30000, maxWait: 10000 });
 
       console.log(`✅ [PDF Processor] Note ${noteId} fully processed: ${totalPages} pages, ${chunks.length} chunks with vectors stored.`);
 

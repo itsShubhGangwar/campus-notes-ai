@@ -11,6 +11,7 @@ import {
   Brain,
   Shield,
 } from 'lucide-react';
+import { RecommendedNotes } from '../components/notes/RecommendedNotes';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -88,6 +89,9 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Personalized Recommendations Feed (Phase 3 Step 2.8) */}
+      <RecommendedNotes />
 
       {/* Quick Action & Milestone Hub */}
       <div>

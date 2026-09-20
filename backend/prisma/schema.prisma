@@ -48,6 +48,7 @@ model User {
   likes        Like[]
   bookmarks    Bookmark[]
   chatSessions ChatSession[]
+  noteViews    NoteView[]
 
   @@index([collegeId, branchId, semester])
   @@map("users")
@@ -149,6 +150,7 @@ model Note {
   likes            Like[]
   bookmarks        Bookmark[]
   chatSessions     ChatSession[]
+  views            NoteView[]
 
   @@index([collegeId, branchId, semester, subjectId])
   @@index([uploaderId])
@@ -227,6 +229,20 @@ model Bookmark {
 
   @@unique([userId, noteId])
   @@map("bookmarks")
+}
+
+model NoteView {
+  id        String   @id @default(uuid())
+  userId    String
+  noteId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, noteId])
+  @@index([noteId, createdAt])
+  @@index([userId, createdAt])
+  @@map("note_views")
 }
 
 enum MessageRole {

@@ -159,3 +159,22 @@ export interface NoteChunk {
   createdAt: string;
 }
 
+export interface RecommendationItem {
+  rank: number;
+  note_id: string;
+  title: string;
+  subject_id: string;
+  semester: number | null;
+  branch_id: string | null;
+  engagement_score: number;
+}
+
+export interface RecommendationResponse {
+  user_id: string;
+  model_version: string;
+  inference_timestamp: string;
+  candidate_count: number;
+  recommendation_count: number;
+  recommendations: RecommendationItem[];
+}
+

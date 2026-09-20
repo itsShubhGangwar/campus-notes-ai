@@ -21,6 +21,8 @@ import {
   ChevronUp,
   AlertTriangle,
   RotateCcw,
+  Heart,
+  Bookmark,
 } from 'lucide-react';
 
 export const NoteDetailPage: React.FC = () => {
@@ -116,6 +118,89 @@ export const NoteDetailPage: React.FC = () => {
     }
   };
 
+  const [isLiking, setIsLiking] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
+
+  const handleToggleLike = async () => {
+    if (!user) {
+      alert('Please log in to like this note.');
+      navigate('/login');
+      return;
+    }
+    if (!note || isLiking) return;
+
+    try {
+      setIsLiking(true);
+      if (note.isLiked) {
+        const res = await api.delete<ApiResponse<{ isLiked: boolean; likesCount: number }>>(
+          `/notes/${note.id}/like`
+        );
+        if (res.data.success) {
+          setNote({
+            ...note,
+            isLiked: false,
+            likesCount: res.data.data.likesCount,
+          });
+        }
+      } else {
+        const res = await api.post<ApiResponse<{ isLiked: boolean; likesCount: number }>>(
+          `/notes/${note.id}/like`
+        );
+        if (res.data.success) {
+          setNote({
+            ...note,
+            isLiked: true,
+            likesCount: res.data.data.likesCount,
+          });
+        }
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update like');
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!user) {
+      alert('Please log in to bookmark this note.');
+      navigate('/login');
+      return;
+    }
+    if (!note || isBookmarking) return;
+
+    try {
+      setIsBookmarking(true);
+      if (note.isBookmarked) {
+        const res = await api.delete<ApiResponse<{ isBookmarked: boolean; bookmarksCount: number }>>(
+          `/notes/${note.id}/bookmark`
+        );
+        if (res.data.success) {
+          setNote({
+            ...note,
+            isBookmarked: false,
+            bookmarksCount: res.data.data.bookmarksCount,
+          });
+        }
+      } else {
+        const res = await api.post<ApiResponse<{ isBookmarked: boolean; bookmarksCount: number }>>(
+          `/notes/${note.id}/bookmark`
+        );
+        if (res.data.success) {
+          setNote({
+            ...note,
+            isBookmarked: true,
+            bookmarksCount: res.data.data.bookmarksCount,
+          });
+        }
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update bookmark');
+    } finally {
+      setIsBookmarking(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center gap-3">
@@ -156,27 +241,73 @@ export const NoteDetailPage: React.FC = () => {
           <ArrowLeft className="w-4 h-4" /> Back to Notes
         </Link>
 
-        {/* Edit/Delete Actions for Owner or Admin */}
-        {(isOwner || isAdmin) && (
-          <div className="flex items-center gap-2">
-            <Link
-              to={`/notes/${note.id}/edit`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              <span>Edit Note</span>
-            </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Like Button */}
+          <button
+            onClick={handleToggleLike}
+            disabled={isLiking}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+              note.isLiked
+                ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 shadow-sm'
+                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+            }`}
+            title={note.isLiked ? 'Unlike note' : 'Like note'}
+          >
+            <Heart
+              className={`w-3.5 h-3.5 transition-transform ${
+                note.isLiked ? 'fill-rose-500 text-rose-500 scale-110' : 'text-slate-400'
+              }`}
+            />
+            <span>{note.isLiked ? 'Liked' : 'Like'}</span>
+            <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-600 font-bold">
+              {note.likesCount || 0}
+            </span>
+          </button>
 
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
-            </button>
-          </div>
-        )}
+          {/* Bookmark Button */}
+          <button
+            onClick={handleToggleBookmark}
+            disabled={isBookmarking}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+              note.isBookmarked
+                ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 shadow-sm'
+                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+            }`}
+            title={note.isBookmarked ? 'Remove bookmark' : 'Bookmark note'}
+          >
+            <Bookmark
+              className={`w-3.5 h-3.5 transition-transform ${
+                note.isBookmarked ? 'fill-amber-500 text-amber-500 scale-110' : 'text-slate-400'
+              }`}
+            />
+            <span>{note.isBookmarked ? 'Saved' : 'Bookmark'}</span>
+            <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-600 font-bold">
+              {note.bookmarksCount || 0}
+            </span>
+          </button>
+
+          {/* Edit/Delete Actions for Owner or Admin */}
+          {(isOwner || isAdmin) && (
+            <>
+              <Link
+                to={`/notes/${note.id}/edit`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Edit Note</span>
+              </Link>
+
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Main Layout Grid */}
@@ -394,19 +525,33 @@ export const NoteDetailPage: React.FC = () => {
             )}
 
             {/* Stats Metrics */}
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-3 text-center">
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center justify-center gap-1 text-slate-400 text-xs mb-1">
-                  <Eye className="w-3.5 h-3.5" /> Views
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-4 gap-2 text-center">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center justify-center gap-1 text-slate-400 text-[10px] mb-0.5">
+                  <Eye className="w-3 h-3" /> Views
                 </div>
-                <p className="text-base font-bold text-slate-900">{note.viewsCount}</p>
+                <p className="text-sm font-bold text-slate-900">{note.viewsCount}</p>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center justify-center gap-1 text-slate-400 text-xs mb-1">
-                  <Download className="w-3.5 h-3.5" /> Downloads
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center justify-center gap-1 text-slate-400 text-[10px] mb-0.5">
+                  <Download className="w-3 h-3" /> Downloads
                 </div>
-                <p className="text-base font-bold text-slate-900">{note.downloadsCount}</p>
+                <p className="text-sm font-bold text-slate-900">{note.downloadsCount}</p>
+              </div>
+
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center justify-center gap-1 text-rose-400 text-[10px] mb-0.5">
+                  <Heart className="w-3 h-3" /> Likes
+                </div>
+                <p className="text-sm font-bold text-slate-900">{note.likesCount || 0}</p>
+              </div>
+
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center justify-center gap-1 text-amber-500 text-[10px] mb-0.5">
+                  <Bookmark className="w-3 h-3" /> Saved
+                </div>
+                <p className="text-sm font-bold text-slate-900">{note.bookmarksCount || 0}</p>
               </div>
             </div>
           </div>
