@@ -36,7 +36,7 @@ export const NotesListPage: React.FC = () => {
 
   // 1. Fetch Colleges on Mount
   useEffect(() => {
-    api.get<ApiResponse<College[]>>('/academic/colleges')
+    api.get<ApiResponse<College[]>>('/api/academic/colleges')
       .then((res) => setColleges(res.data.data))
       .catch(() => {});
   }, []);
@@ -44,9 +44,10 @@ export const NotesListPage: React.FC = () => {
   // 2. Fetch Branches when College changes
   useEffect(() => {
     if (selectedCollege) {
-      api.get<ApiResponse<Branch[]>>(`/academic/colleges/${selectedCollege}/branches`)
+      api.get<ApiResponse<Branch[]>>(`/api/academic/colleges/${selectedCollege}/branches`)
         .then((res) => setBranches(res.data.data))
         .catch(() => setBranches([]));
+
     } else {
       setBranches([]);
       setSelectedBranch('');

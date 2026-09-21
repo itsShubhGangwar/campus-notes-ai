@@ -29,7 +29,7 @@ export const RegisterPage: React.FC = () => {
     const fetchColleges = async () => {
       try {
         setIsLoadingAcademics(true);
-        const res = await api.get<ApiResponse<College[]>>('/academic/colleges');
+        const res = await api.get<ApiResponse<College[]>>('/api/academic/colleges');
         if (res.data.success) {
           setColleges(res.data.data);
           if (res.data.data.length > 0) {
@@ -55,8 +55,9 @@ export const RegisterPage: React.FC = () => {
 
     const fetchBranches = async () => {
       try {
-        const res = await api.get<ApiResponse<Branch[]>>(`/academic/colleges/${selectedCollegeId}/branches`);
+        const res = await api.get<ApiResponse<Branch[]>>(`/api/academic/colleges/${selectedCollegeId}/branches`);
         if (res.data.success) {
+
           setBranches(res.data.data);
           if (res.data.data.length > 0) {
             setSelectedBranchId(res.data.data[0].id);

@@ -10,6 +10,7 @@ backend/uploads/
 recommendation/data/raw/
 recommendation/data/processed/
 *.joblib
+!recommendation/models/recommendation_model.joblib
 
 
 # Python

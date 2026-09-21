@@ -44,7 +44,7 @@ export const UploadNotePage: React.FC = () => {
 
   // 1. Fetch Colleges
   useEffect(() => {
-    api.get<ApiResponse<College[]>>('/academic/colleges')
+    api.get<ApiResponse<College[]>>('/api/academic/colleges')
       .then((res) => {
         setColleges(res.data.data);
         if (!selectedCollegeId && res.data.data.length > 0) {
@@ -62,7 +62,7 @@ export const UploadNotePage: React.FC = () => {
       return;
     }
 
-    api.get<ApiResponse<Branch[]>>(`/academic/colleges/${selectedCollegeId}/branches`)
+    api.get<ApiResponse<Branch[]>>(`/api/academic/colleges/${selectedCollegeId}/branches`)
       .then((res) => {
         setBranches(res.data.data);
         if (!selectedBranchId && res.data.data.length > 0) {
@@ -71,6 +71,7 @@ export const UploadNotePage: React.FC = () => {
       })
       .catch(() => setBranches([]));
   }, [selectedCollegeId]);
+
 
   // 3. Fetch Subjects when Branch or Semester changes
   useEffect(() => {

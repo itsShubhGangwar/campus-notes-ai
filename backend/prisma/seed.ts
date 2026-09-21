@@ -1,30 +1,9 @@
-import { PrismaClient, Role } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
-
-  // 1. Create Default Admin User
-  const adminEmail = 'admin@campusnotes.ai';
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-
-  if (!existingAdmin) {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('Admin@123456', salt);
-
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        name: 'System Administrator',
-        role: Role.ADMIN,
-        bio: 'CampusNotes Platform Administrator',
-      },
-    });
-    console.log('✅ Created default admin user: admin@campusnotes.ai (Pass: Admin@123456)');
-  }
 
   // 2. Seed Colleges
   const collegesData = [
